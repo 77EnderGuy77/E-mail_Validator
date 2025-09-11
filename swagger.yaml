@@ -1,0 +1,113 @@
+openapi: 3.0.3
+info:
+  title: Email Validation API
+  version: 1.0.0
+  description: API for validating single and bulk emails with optional SMTP probe
+  contact:
+    email: contact.emailapi@gmail.com
+servers:
+  - url: https://virtserver.swaggerhub.com/enderguy77codingorg/E-mail_Validator/1.0.0
+components:
+  securitySchemes:
+    RapidAPIKey:
+      type: apiKey
+      in: header
+      name: X-RapidAPI-Key
+  schemas:
+    EmailCheckResult:
+      type: object
+      properties:
+        email:
+          type: string
+          example: "test@example.com"
+        percentage:
+          type: number
+          example: 80
+        info:
+          type: object
+          additionalProperties: true
+    EmailCheckResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "success"
+        body:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmailCheckResult'
+      required:
+        - code
+        - message
+        - body
+paths:
+  /check:
+    get:
+      summary: Check a single email
+      description: Returns validation info for a single email
+      security:
+        - RapidAPIKey: []
+      parameters:
+        - in: query
+          name: email
+          schema:
+            type: string
+          required: true
+          description: The email to check
+        - in: query
+          name: skipSMTP
+          schema:
+            type: boolean
+            default: false
+          description: Skip SMTP check
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailCheckResponse'
+        '400':
+          description: Missing or invalid parameter
+        '422':
+          description: Email failed validation
+        '401':
+          description: Unauthorized (missing or invalid RapidAPI key)
+    post:
+      summary: Check multiple emails
+      description: Accepts JSON with emails array and skipSMTP option
+      security:
+        - RapidAPIKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                skipSMTP:
+                  type: boolean
+                  default: false
+                emails:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    - "test1@example.com"
+                    - "test2@example.com"
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailCheckResponse'
+        '400':
+          description: Missing or invalid emails array
+        '401':
+          description: Unauthorized (missing or invalid RapidAPI key)
+        '422':
+          description: One or more emails failed validation

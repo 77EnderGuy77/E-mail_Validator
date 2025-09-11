@@ -1,0 +1,25 @@
+{
+  "name": "e-mail-check",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "start:dns": "node dist/utils/dns-check.js",
+    "start:email": "node dist/utils/email-validate.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.3.1",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "fastify": "^5.6.0",
+    "smtp-connection": "^4.0.2"
+  }
+}
