@@ -13,7 +13,7 @@ export const checkEmail = async (
   allowlist: Set<string> = new Set(),
   skipSMTP: boolean = false
 ): Promise<EmailCheckResult> => {
-  const result: EmailCheckResult = { email, syntaxValid: syntaxCheck(email) };
+  const result: EmailCheckResult = {syntaxValid: syntaxCheck(email) };
 
   if (!result.syntaxValid) return result;
 

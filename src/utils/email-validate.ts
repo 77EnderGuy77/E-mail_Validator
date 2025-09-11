@@ -147,7 +147,7 @@ export function calculateScore(result: EmailCheckResult): number {
     if (result.inBlocklist) {
         score -= 50;
     }
-    if (result.inAllowlist) {
+    if (result.inTrustedDomains) {
         score += 20;
     }
 
