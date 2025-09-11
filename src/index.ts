@@ -1,5 +1,5 @@
 import Fastify from "fastify";
-import { checkEmail, bulkCheck } from "./utils/checks";
+import { checkEmail } from "./utils/checks";
 import { calculateScore, loadList } from "./utils/email-validate";
 
 interface IQuerystring {
@@ -38,7 +38,7 @@ app.addHook("onRequest", async (request, reply) => {
 });
 
 // Single email check
-app.get<{ Querystring: IQuerystring }>("/check", async (request, reply) => {
+app.get<{ Querystring: IQuerystring, Reply: IReply }>("/check", async (request, reply) => {
     const { email, skipSMTP } = request.query as { email: string, skipSMTP: boolean };
 
     if (!email) return failure(reply, "Missing email parameter", 400);
@@ -60,7 +60,7 @@ app.get<{ Querystring: IQuerystring }>("/check", async (request, reply) => {
 });
 
 // Bulk email check
-app.post<{ Headers: IHeaders }>("/check-bulk", async (request, reply) => {
+app.post<{ Headers: IHeaders, Reply: IReply }>("/check-bulk", async (request, reply) => {
     try {
         const data = request.body as { skipSMTP?: boolean; emails?: string[] };
         if (!data?.emails || data.emails.length === 0) return failure(reply, "Missing emails array", 400);
@@ -82,7 +82,10 @@ app.post<{ Headers: IHeaders }>("/check-bulk", async (request, reply) => {
     }
 });
 
-app.listen({ port: 3000, host: "0.0.0.0" });
+export default async function handler(req: any, res: any) {
+    await app.ready();
+    app.server.emit("request", req, res);
+}
 
 // Helpers
 function success(reply: any, body: any, message = "success", code = 200) {

@@ -51,30 +51,3 @@ export const checkEmail = async (
 
   return result;
 };
-
-
-/**
- * Bulk check multiple emails (from array or YAML file).
- */
-export const bulkCheck = async (
-  input: string[] | string,
-  blocklist: Set<string> = new Set(),
-  allowlist: Set<string> = new Set()
-): Promise<EmailCheckResult[]> => {
-  let emails: string[];
-
-  if (typeof input === "string" && fs.existsSync(input)) {
-    const content = fs.readFileSync(input, "utf-8");
-    if (input.endsWith(".yaml") || input.endsWith(".yml")) {
-      emails = yaml.load(content) as string[];
-    } else {
-      emails = content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    }
-  } else if (Array.isArray(input)) {
-    emails = input;
-  } else {
-    throw new Error("Input must be an array of emails or a path to a file");
-  }
-
-  return Promise.all(emails.map((email) => checkEmail(email, blocklist, allowlist)));
-};
