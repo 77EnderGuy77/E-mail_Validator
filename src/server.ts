@@ -3,8 +3,8 @@ import { checkEmail, bulkCheck } from "./utils/checks";
 import { calculateScore, loadList } from "./utils/email-validate";
 
 interface IQuerystring {
-    email: string | string[];
-    skipSMTP?: boolean;
+    email: string[] | string;
+    skipSMTP: boolean;
 }
 
 interface IHeaders {
@@ -13,41 +13,38 @@ interface IHeaders {
 }
 
 interface IReplyBody {
-    email?: string;
-    percentage?: number;
+    email: string;
+    percentage: number;
     info: any;
 }
 
 interface IReply {
     code: number;
     message: string;
-    body: IReplyBody | IReplyBody[] | null;
+    body: IReplyBody | null;
 }
 
 const blocklist = loadList("disposable_email_blocklist.conf");
 const trustedDomains = loadList("trusted_domains.conf");
 
-const logger: boolean = Boolean(process.env.LOGGER_ON!);
-const app = Fastify({ logger });
+const app = Fastify({ logger: true });
 
-// ✅ Header-based API key validation
+// Header check
 app.addHook("onRequest", async (request, reply) => {
     const apiKey = request.headers["x-rapidapi-key"];
     if (!apiKey || apiKey !== process.env.RAPIDAPI_KEY) {
-        return reply.code(401).send({ error: "Unauthorized" });
+        return reply.code(401).send({ code: 401, message: "Unauthorized", body: null });
     }
 });
 
 // Single email check
-app.get<{ Querystring: IQuerystring, Reply: IReply }>("/check", async (request, reply) => {
-    const { email, skipSMTP } = request.query;
+app.get<{ Querystring: IQuerystring }>("/check", async (request, reply) => {
+    const { email, skipSMTP } = request.query as { email: string, skipSMTP: boolean };
 
-    if (!email || Array.isArray(email)) {
-        return failure(reply, "Missing or invalid email parameter", 400);
-    }
+    if (!email) return failure(reply, "Missing email parameter", 400);
 
     try {
-        const result = await checkEmail(email, blocklist, trustedDomains, skipSMTP ?? false);
+        const result = await checkEmail(email, blocklist, trustedDomains, skipSMTP);
 
         if (!result.syntaxValid) return failure(reply, "Invalid email syntax", 422);
         if (!result.mx?.ok) return failure(reply, "No MX records found", 422);
@@ -63,48 +60,35 @@ app.get<{ Querystring: IQuerystring, Reply: IReply }>("/check", async (request, 
 });
 
 // Bulk email check
-app.post<{ Headers: IHeaders, Reply: IReply }>("/check-bulk", async (request, reply) => {
+app.post<{ Headers: IHeaders }>("/check-bulk", async (request, reply) => {
     try {
         const data = request.body as { skipSMTP?: boolean; emails?: string[] };
-
-        if (!data?.emails || !Array.isArray(data.emails) || data.emails.length === 0) {
-            return failure(reply, "Missing or invalid emails array", 400);
-        }
+        if (!data?.emails || data.emails.length === 0) return failure(reply, "Missing emails array", 400);
 
         const skipSMTP = data.skipSMTP ?? false;
 
         const results = await Promise.all(
-            data.emails.map((email) => checkEmail(email, blocklist, trustedDomains, skipSMTP))
+            data.emails.map(email => checkEmail(email, blocklist, trustedDomains, skipSMTP))
         );
 
-        const responseBody = results.map((result) => {
-            if (!result.syntaxValid) return { percentage: 0, info: "Invalid email syntax" };
-            if (!result.mx?.ok) return { percentage: 0, info: "No MX records found" };
+        const response = results.map(result => ({
+            percentage: result.syntaxValid && result.mx?.ok ? calculateScore(result) : 0,
+            info: !result.syntaxValid ? "Invalid syntax" : !result.mx?.ok ? "No MX records" : result,
+        }));
 
-            return { percentage: calculateScore(result), info: result };
-        });
-
-        return success(reply, responseBody, "Bulk email check completed");
+        return success(reply, response as any, "Bulk email check completed");
     } catch (err: any) {
         return failure(reply, `Internal error: ${err.message}`, 500);
     }
 });
 
-app.listen({ port: 3000 }, (err, address) => {
-    if (err) {
-        console.error(err);
-        process.exit(1);
-    }
-    console.log(`Server listening at ${address}`);
-});
+app.listen({ port: 3000, host: "0.0.0.0" });
 
-// --------------------- Helpers ---------------------
-function success(reply: any, body: IReplyBody | IReplyBody[], message = "success", code = 200) {
-    const response: IReply = { code, message, body };
-    return reply.code(code).send(response);
+// Helpers
+function success(reply: any, body: any, message = "success", code = 200) {
+    return reply.code(code).send({ code, message, body });
 }
 
 function failure(reply: any, message: string, code = 400, statusCode = 400) {
-    const response: IReply = { code, message, body: null };
-    return reply.code(statusCode).send(response);
+    return reply.code(statusCode).send({ code, message, body: null });
 }
