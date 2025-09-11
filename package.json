@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --output public",
     "start": "node dist/server.js"
   },
   "keywords": [],
