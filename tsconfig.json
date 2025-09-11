@@ -11,5 +11,5 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*", "__tests__/**/*.ts"],
-  "exclude": ["node_modules", "public"]
+  "exclude": ["node_modules"]
 }
