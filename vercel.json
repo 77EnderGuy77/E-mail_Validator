@@ -1,18 +1,10 @@
 {
-    "version": 2,
-    "builds": [
-        {
-            "src": "src/server.ts",
-            "use": "@vercel/node",
-            "config": {
-                "tsc": true
-            }
-        }
-    ],
-    "routes": [
-        {
-            "src": "/(.*)",
-            "dest": "/src/server.ts"
-        }
-    ]
+  "version": 2,
+  "builds": [
+     { "src": "public/server.js", "use": "@vercel/node" }
+  ],
+  "outputDirectory": "public",
+  "routes": [
+     { "src": "/(.*)", "dest": "/dist/server.js" }
+  ]
 }
