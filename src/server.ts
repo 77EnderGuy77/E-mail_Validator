@@ -1,15 +1,19 @@
+// server.ts
+import dotenv from "dotenv";
+dotenv.config(); // Load .env variables
+
 import Fastify from "fastify";
 import { checkEmail } from "./utils/checks";
 import { calculateScore, loadList } from "./utils/email-validate";
 
 interface IQuerystring {
-    email: string[] | string;
-    skipSMTP: boolean;
+    email: string | string[];
+    skipSMTP?: boolean;
 }
 
 interface IHeaders {
-    "x-rapidapi-key": string;
-    "x-rapidapi-host": string;
+    "x-rapidapi-key"?: string;
+    "x-rapidapi-host"?: string;
 }
 
 interface IReplyBody {
@@ -24,28 +28,32 @@ interface IReply {
     body: IReplyBody | IReplyBody[] | null;
 }
 
+// Load blocklists
 const blocklist = loadList("disposable_email_blocklist.conf");
 const trustedDomains = loadList("trusted_domains.conf");
 
 const app = Fastify({ logger: true });
 
-// Header check
+// -------------------------
+// Middleware: API key check
+// -------------------------
 app.addHook("onRequest", async (request, reply) => {
+    if (process.env.NODE_ENV === "development") return; // skip in dev
     const apiKey = request.headers["x-rapidapi-key"];
     if (!apiKey || apiKey !== process.env.RAPIDAPI_KEY) {
         return reply.code(401).send({ code: 401, message: "Unauthorized", body: null });
     }
 });
 
+// -------------------------
 // Single email check
-app.get<{ Querystring: IQuerystring, Reply: IReply }>("/check", async (request, reply) => {
-    const { email, skipSMTP } = request.query as { email: string, skipSMTP: boolean };
-
+// -------------------------
+app.get<{ Querystring: IQuerystring, Headers: IHeaders, Reply: IReply }>("/check", async (request, reply) => {
+    const { email, skipSMTP = false } = request.query;
     if (!email) return failure(reply, "Missing email parameter", 400);
 
     try {
-        const result = await checkEmail(email, blocklist, trustedDomains, skipSMTP);
-
+        const result = await checkEmail(email.toString(), blocklist, trustedDomains, skipSMTP);
         if (!result.syntaxValid) return failure(reply, "Invalid email syntax", 422);
         if (!result.mx?.ok) return failure(reply, "No MX records found", 422);
 
@@ -59,7 +67,9 @@ app.get<{ Querystring: IQuerystring, Reply: IReply }>("/check", async (request, 
     }
 });
 
+// -------------------------
 // Bulk email check
+// -------------------------
 app.post<{ Headers: IHeaders, Reply: IReply }>("/check-bulk", async (request, reply) => {
     try {
         const data = request.body as { skipSMTP?: boolean; emails?: string[] };
@@ -76,12 +86,15 @@ app.post<{ Headers: IHeaders, Reply: IReply }>("/check-bulk", async (request, re
             info: !result.syntaxValid ? "Invalid syntax" : !result.mx?.ok ? "No MX records" : result,
         }));
 
-        return success(reply, response as any, "Bulk email check completed");
+        return success(reply, response, "Bulk email check completed");
     } catch (err: any) {
         return failure(reply, `Internal error: ${err.message}`, 500);
     }
 });
 
+// -------------------------
+// Start server (Railway PORT or default 3000)
+// -------------------------
 const PORT = parseInt(process.env.PORT || "3000", 10);
 app.listen({ port: PORT, host: "0.0.0.0" }, (err, address) => {
     if (err) {
@@ -91,7 +104,9 @@ app.listen({ port: PORT, host: "0.0.0.0" }, (err, address) => {
     console.log(`Server listening at ${address}`);
 });
 
-// Helpers
+// -------------------------
+// Helper functions
+// -------------------------
 function success(reply: any, body: any, message = "success", code = 200) {
     return reply.code(code).send({ code, message, body });
 }
