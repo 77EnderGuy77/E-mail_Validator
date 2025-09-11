@@ -93,6 +93,10 @@ app.post<{ Headers: IHeaders, Reply: IReply }>("/check-bulk", async (request, re
     }
 });
 
+app.get('/ping', async (req, reply) => {
+    return reply.code(200).send("pong")
+})
+
 // -------------------------
 // Start server (Railway PORT or default 3000)
 // -------------------------

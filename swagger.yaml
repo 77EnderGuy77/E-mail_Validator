@@ -6,15 +6,57 @@ info:
   contact:
     email: contact.emailapi@gmail.com
 servers:
-  - url: https://virtserver.swaggerhub.com/enderguy77codingorg/E-mail_Validator/1.0.0
+  - url: https://e-mailvalidator-production.up.railway.app/
 components:
   securitySchemes:
     RapidAPIKey:
       type: apiKey
       in: header
-      name: X-RapidAPI-Key
+      name: x-rapidapi-key
   schemas:
     EmailCheckResult:
+      type: object
+      properties:
+        syntaxValid:
+          type: boolean
+          example: true
+        mx:
+          type: object
+          properties:
+            ok:
+              type: boolean
+              example: true
+        smtp:
+          type: object
+          properties:
+            ok:
+              type: boolean
+              example: true
+            error:
+              type: string
+              nullable: true
+        inBlocklist:
+          type: boolean
+          example: false
+        inTrustedDomains:
+          type: boolean
+          example: true
+        isRole:
+          type: boolean
+          example: false
+        isDisposable:
+          type: boolean
+          example: false
+        hasSPF:
+          type: boolean
+          example: true
+        hasDMARC:
+          type: boolean
+          example: true
+        domainAgeYears:
+          type: integer
+          example: 5
+    SingleEmailResponse:
       type: object
       properties:
         email:
@@ -22,11 +64,23 @@ components:
           example: "test@example.com"
         percentage:
           type: number
-          example: 80
+          example: 85
         info:
-          type: object
-          additionalProperties: true
-    EmailCheckResponse:
+          $ref: '#/components/schemas/EmailCheckResult'
+    BulkEmailResponseItem:
+      type: object
+      properties:
+        percentage:
+          type: number
+          example: 85
+        info:
+          oneOf:
+            - type: string
+              example: "Invalid syntax"
+            - type: string
+              example: "No MX records"
+            - $ref: '#/components/schemas/EmailCheckResult'
+    ApiResponse:
       type: object
       properties:
         code:
@@ -36,13 +90,11 @@ components:
           type: string
           example: "success"
         body:
-          type: array
-          items:
-            $ref: '#/components/schemas/EmailCheckResult'
-      required:
-        - code
-        - message
-        - body
+          oneOf:
+            - $ref: '#/components/schemas/SingleEmailResponse'
+            - type: array
+              items:
+                $ref: '#/components/schemas/BulkEmailResponseItem'
 paths:
   /check:
     get:
@@ -69,13 +121,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EmailCheckResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           description: Missing or invalid parameter
         '422':
           description: Email failed validation
         '401':
           description: Unauthorized (missing or invalid RapidAPI key)
+  /check-bulk:
     post:
       summary: Check multiple emails
       description: Accepts JSON with emails array and skipSMTP option
@@ -104,7 +157,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EmailCheckResponse'
+                $ref: '#/components/schemas/ApiResponse'
         '400':
           description: Missing or invalid emails array
         '401':
