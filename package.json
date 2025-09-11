@@ -1,6 +1,6 @@
 {
   "name": "e-mail-check",
-  "version": "1.1.4a",
+  "version": "1.1.5",
   "description": "",
   "main": "server.js",
   "scripts": {
@@ -18,8 +18,10 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "@types/whois-json": "^2.0.4",
     "dotenv": "^17.2.2",
     "fastify": "^5.6.0",
-    "smtp-connection": "^4.0.2"
+    "smtp-connection": "^4.0.2",
+    "whois-json": "^2.0.4"
   }
 }

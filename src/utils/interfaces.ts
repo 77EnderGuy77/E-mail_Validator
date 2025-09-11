@@ -1,20 +1,14 @@
 export interface EmailCheckResult {
+  email: string;
   syntaxValid: boolean;
-
-  // Optional fields because they depend on checks
-  isRole?: boolean;
+  mx?: { ok: boolean };
+  smtp?: { ok: boolean; error?: string };
   inBlocklist?: boolean;
   inTrustedDomains?: boolean;
-
-  mx?: {
-    ok: boolean;
-    error?: string;
-  };
-
+  isRole?: boolean;
+  isDisposable?: boolean;
+  hasSPF?: boolean;
+  hasDMARC?: boolean;
+  domainAgeYears?: number;
   noProbeList?: boolean;
-
-  smtp?: {
-    ok: boolean;
-    error?: string;
-  };
 }

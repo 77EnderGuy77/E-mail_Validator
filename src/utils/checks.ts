@@ -1,6 +1,6 @@
 import * as yaml from "js-yaml";
 import fs from "fs";
-import { syntaxCheck, checkMX, isDomainInList, isRoleEmail, isSMTP } from "./email-validate";
+import { syntaxCheck, checkMX, isDomainInList, isRoleEmail, isSMTP, hasSPF, hasDMARC, getDomainAge } from "./email-validate";
 import { NO_PROBE_PROVIDERS } from "./noProbeList";
 import { EmailCheckResult } from "./interfaces";
 
@@ -13,7 +13,7 @@ export const checkEmail = async (
   allowlist: Set<string> = new Set(),
   skipSMTP: boolean = false
 ): Promise<EmailCheckResult> => {
-  const result: EmailCheckResult = {syntaxValid: syntaxCheck(email) };
+  const result: EmailCheckResult = {email, syntaxValid: syntaxCheck(email) };
 
   if (!result.syntaxValid) return result;
 
@@ -25,29 +25,38 @@ export const checkEmail = async (
   // Domain lists
   result.inBlocklist = isDomainInList(domain, blocklist);
   result.inTrustedDomains = isDomainInList(domain, allowlist);
+  result.isDisposable = result.inBlocklist; // disposable = in blocklist
 
   // MX check
   const mx = await checkMX(domain);
   if (mx instanceof Error) {
-    result.mx = { ok: false, error: mx.message };
+    result.mx = { ok: false };
   } else {
     result.mx = { ok: true };
   }
 
   // NO_PROBE check
-  result.noProbeList = NO_PROBE_PROVIDERS.includes(domain);
+  const noProbe = NO_PROBE_PROVIDERS.includes(domain);
+  result.noProbeList = noProbe;
 
   // SMTP (only if MX ok and not in no-probe)
-  if (!skipSMTP && result.mx.ok && !result.noProbeList) {
+  if (!skipSMTP && result.mx.ok && !noProbe) {
     const smtp = await isSMTP(domain);
     result.smtp = smtp instanceof Error
       ? { ok: false, error: smtp.message }
       : { ok: smtp };
   } else if (skipSMTP) {
     result.smtp = { ok: false, error: "SMTP check skipped by request" };
-  } else if (result.noProbeList) {
+  } else if (noProbe) {
     result.smtp = { ok: false, error: "Provider blocks SMTP probes" };
   }
+
+  // SPF / DMARC
+  result.hasSPF = await hasSPF(domain);
+  result.hasDMARC = await hasDMARC(domain);
+
+  // Domain age
+  result.domainAgeYears = await getDomainAge(domain);
 
   return result;
 };

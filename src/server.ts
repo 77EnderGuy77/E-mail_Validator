@@ -5,6 +5,7 @@ dotenv.config(); // Load .env variables
 import Fastify from "fastify";
 import { checkEmail } from "./utils/checks";
 import { calculateScore, loadList } from "./utils/email-validate";
+import { EmailCheckResult } from "./utils/interfaces";
 
 interface IQuerystring {
     email: string | string[];
@@ -19,7 +20,7 @@ interface IHeaders {
 interface IReplyBody {
     email: string;
     percentage: number;
-    info: any;
+    info: EmailCheckResult | EmailCheckResult[];
 }
 
 interface IReply {

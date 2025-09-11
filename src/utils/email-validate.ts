@@ -1,5 +1,6 @@
 import fs from "fs"
 import path from "path";
+import whois from "whois-json";
 import { promises as dns } from "dns"
 import { EmailCheckResult } from "./interfaces";
 // @ts-ignore
@@ -119,46 +120,104 @@ export const isSMTP = async (domain: string): Promise<boolean | Error> => {
     });
 };
 
+export async function hasSPF(domain: string): Promise<boolean> {
+    try {
+        const records = await dns.resolveTxt(domain);
+        return records.some(txt => txt.join("").toLowerCase().startsWith("v=spf1"));
+    } catch {
+        return false;
+    }
+}
+
+
+export async function hasDMARC(domain: string): Promise<boolean> {
+    try {
+        const records = await dns.resolveTxt("_dmarc." + domain);
+        return records.some(txt => txt.join("").toLowerCase().startsWith("v=dmarc1"));
+    } catch {
+        return false;
+    }
+}
+
+export async function getDomainAge(domain: string): Promise<number> {
+    try {
+        const info: any = await whois(domain);
+
+        // whois-json may return an array or object
+        let creationDate: string | undefined;
+
+        if (Array.isArray(info)) {
+            // Pick the first element that has creationDate
+            creationDate = info.find((el: any) => el.creationDate)?.creationDate;
+        } else {
+            creationDate = info.creationDate;
+        }
+
+        console.log(creationDate)
+        if (creationDate) {
+            const created = new Date(creationDate);
+            const now = new Date();
+            const age = (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24 * 365);
+            return Math.floor(age);
+        }
+    } catch (err) {
+        console.error(`WHOIS lookup failed for ${domain}: ${err}`);
+    }
+
+    return 0; // unknown or error
+}
+
 /**
  * Calculate a trust score (0–100) from the EmailCheckResult.
  */
 export function calculateScore(result: EmailCheckResult): number {
     let score = 0;
 
-    // Syntax
+    // Syntax check: mandatory
     if (!result.syntaxValid) return 0;
-    score += 30;
+    score += 20;
 
-    // MX
+    // MX records
     if (result.mx?.ok) {
-        score += 30;
-    } else {
-        score -= 20;
+        score += 15;
     }
 
-    // SMTP
+    // SMTP verification
     if (result.smtp?.ok) {
-        score += 30;
-    } else if (result.smtp?.error) {
-        score -= 10; // not fatal, but reduces trust
-    }
-
-    // Blocklist / Allowlist
-    if (result.inBlocklist) {
-        score -= 50;
-    }
-    if (result.inTrustedDomains) {
         score += 20;
     }
 
-    // Role-based email (generic mailbox like admin@, support@, etc.)
-    if (result.isRole) {
-        score -= 10;
+    // Blocklist / Trusted domains
+    if (result.inBlocklist) {
+        score -= 20; // still penalize
+    }
+    if (result.inTrustedDomains || result.noProbeList) {
+        score += 10;
     }
 
-    // Normalize
+    // Disposable domain
+    if (result.isDisposable) {
+        score -= 25;
+    }
+
+    // Role-based email
+    if (result.isRole) {
+        score -= 5;
+    }
+
+    // SPF / DMARC security checks
+    if (result.hasSPF) score += 10;
+    if (result.hasDMARC) score += 10;
+
+    // Domain age (more trust for older domains)
+    if (result.domainAgeYears && result.domainAgeYears >= 1) {
+        score += Math.min(result.domainAgeYears, 10); // max +10 points
+    }
+
+    // Normalize between 0 and 100
     if (score < 0) score = 0;
     if (score > 100) score = 100;
 
     return score;
 }
+
