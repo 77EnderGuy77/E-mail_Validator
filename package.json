@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc --output public",
-    "start": "node dist/server.js"
+    "build": "tsc",
+    "start": "node public/server.js"
   },
   "keywords": [],
   "author": "77EnderGuy77",
