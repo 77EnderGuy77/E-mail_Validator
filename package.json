@@ -1,17 +1,15 @@
 {
   "name": "e-mail-check",
-  "version": "1.0.0",
+  "version": "1.0.7b",
   "description": "",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
-    "start:dns": "node dist/utils/dns-check.js",
-    "start:email": "node dist/utils/email-validate.js"
+    "start": "node dist/server.js"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "77EnderGuy77",
+  "license": "MIT",
   "type": "commonjs",
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
