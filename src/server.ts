@@ -83,15 +83,10 @@ app.post<{ Headers: IHeaders, Reply: IReply }>("/check-bulk", async (request, re
 });
 
 // Start the server (Railway provides PORT via env)
-const PORT = parseInt(process.env.PORT || "3000", 10);
-app.listen({ port: PORT, host: "0.0.0.0" }, (err, address) => {
-    if (err) {
-        console.error(err);
-        process.exit(1);
-    }
-    console.log(`Server listening at ${address}`);
-});
-
+export default async function handler(req: any, res: any) {
+  await app.ready();
+  app.server.emit("request", req, res);
+}
 // Helpers
 function success(reply: any, body: any, message = "success", code = 200) {
     return reply.code(code).send({ code, message, body });
