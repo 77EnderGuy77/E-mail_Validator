@@ -41,6 +41,7 @@ const app = Fastify({ logger: true });
 app.addHook("onRequest", async (request, reply) => {
     if (process.env.NODE_ENV === "development") return; // skip in dev
     console.log({
+        fullRequest: request.headers,
         proxySecret: request.headers["x-rapidapi-proxy-secret"],
         rapidapiUser: request.headers["x-rapidapi-user"] ?? null,
         rawHeaders: {
