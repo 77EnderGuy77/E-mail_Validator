@@ -40,10 +40,14 @@ const app = Fastify({ logger: true });
 // -------------------------
 app.addHook("onRequest", async (request, reply) => {
     if (process.env.NODE_ENV === "development") return; // skip in dev
-    const apiKey = request.headers["x-rapidapi-key"];
-    if (!apiKey || apiKey !== process.env.RAPIDAPI_KEY) {
-        return reply.code(401).send({ code: 401, message: "Unauthorized", body: null });
-    }
+    console.log({
+        proxySecret: request.headers["x-rapidapi-proxy-secret"],
+        rapidapiUser: request.headers["x-rapidapi-user"] ?? null,
+        rawHeaders: {
+            // DO NOT persist full x-rapidapi-key in logs: only inspect it temporarily for mapping
+            hasRapidapiKey: !!request.headers["x-rapidapi-key"]
+        }
+    });
 });
 
 // -------------------------
