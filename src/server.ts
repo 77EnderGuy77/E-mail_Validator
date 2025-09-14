@@ -40,43 +40,74 @@ const app = Fastify({ logger: true });
 // -------------------------
 let remaining: number | null = 0;
 
+import pino from "pino";
+
+// Create a pino logger
+const logger = pino({ level: "info" });
+
+// Simple log limiter
+
+let logCount = 0;
+let lastReset = Date.now();
+const LOG_LIMIT = 400; // max logs per second
+
+function safeLog(...args: any[]) {
+    const now = Date.now();
+
+    // Reset counter every second
+    if (now - lastReset >= 1000) {
+        logCount = 0;
+        lastReset = now;
+    }
+
+    if (logCount < LOG_LIMIT) {
+        console.log(...args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg)));
+        logCount++;
+    } else {
+        if (logCount === LOG_LIMIT) {
+            console.warn("⚠️ Log rate limit reached (400/sec), dropping further logs...");
+        }
+        logCount++;
+    }
+}
+
 app.addHook("onRequest", async (req) => {
-    console.log("➡️ onRequest - Incoming headers:", req.headers);
+    safeLog("➡️ onRequest - Incoming headers:", req.headers);
 });
 
 // 🔎 Log querystring and body before validation
 app.addHook("preParsing", async (req, reply, payload) => {
-    console.log("➡️ preParsing - Query:", req.query);
-    console.log("➡️ preParsing - Raw payload (may be a stream):", payload);
+    safeLog("➡️ preParsing - Query:", req.query);
+    safeLog("➡️ preParsing - Raw payload (may be a stream):", payload);
     return payload; // must return payload to continue
 });
 
 // 🔎 Log after body parsing
 app.addHook("preValidation", async (req) => {
-    console.log("➡️ preValidation - Body:", req.body);
+    safeLog("➡️ preValidation - Body:", req.body);
 });
 
 // 🔎 Log after validation, before handler
 app.addHook("preHandler", async (req, reply) => {
-    console.log("➡️ preHandler - Headers:", req.headers);
-    console.log("➡️ preHandler - Remaining rate limit:", req.headers["x-ratelimit-requests-remaining"]);
+    safeLog("➡️ preHandler - Headers:", req.headers);
+    safeLog("➡️ preHandler - Remaining rate limit:", req.headers["x-ratelimit-requests-remaining"]);
 });
 
 // 🔎 Log right before sending response
 app.addHook("onSend", async (req, reply, payload) => {
-    console.log("⬅️ onSend - Outgoing headers:", reply.getHeaders());
-    console.log("⬅️ onSend - Outgoing payload:", payload);
+    safeLog("⬅️ onSend - Outgoing headers:", reply.getHeaders());
+    safeLog("⬅️ onSend - Outgoing payload:", payload);
     return payload; // must return payload
 });
 
 // 🔎 Log after response is sent
 app.addHook("onResponse", async (req, reply) => {
-    console.log("✅ onResponse - Request completed for:", req.raw.url);
+    safeLog("✅ onResponse - Request completed for:", req.raw.url);
 });
 
 // 🔎 Capture errors globally
 app.setErrorHandler((err, req, reply) => {
-    console.error("💥 Error occurred:", err);
+    safeLog("💥 Error occurred:", err);
     reply.code(500).send({ code: 500, message: "Internal server error" });
 });
 
