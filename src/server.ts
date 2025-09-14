@@ -40,86 +40,16 @@ const app = Fastify({ logger: true });
 // -------------------------
 let remaining: number | null = 0;
 
-import pino from "pino";
+app.addHook("onSend", async (request, reply) => {
+    const header = request.headers
 
-// Create a pino logger
-const logger = pino({ level: "info" });
+    remaining = parseInt(header["x-ratelimit-requests-remaining"] as string)
 
-// Simple log limiter
-
-let logCount = 0;
-let lastReset = Date.now();
-const LOG_LIMIT = 400; // max logs per second
-
-function safeLog(...args: any[]) {
-    const now = Date.now();
-
-    // Reset counter every second
-    if (now - lastReset >= 1000) {
-        logCount = 0;
-        lastReset = now;
+    if (remaining <= 0){
+        reply.code(400).send("The Rate limit is reached")
     }
 
-    if (logCount < LOG_LIMIT) {
-        console.log(...args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : arg)));
-        logCount++;
-    } else {
-        if (logCount === LOG_LIMIT) {
-            console.warn("⚠️ Log rate limit reached (400/sec), dropping further logs...");
-        }
-        logCount++;
-    }
-}
-
-app.addHook("onRequest", async (req) => {
-    safeLog("➡️ onRequest - Incoming headers:", req.headers);
-});
-
-// 🔎 Log querystring and body before validation
-app.addHook("preParsing", async (req, reply, payload) => {
-    safeLog("➡️ preParsing - Query:", req.query);
-    safeLog("➡️ preParsing - Raw payload (may be a stream):", payload);
-    return payload; // must return payload to continue
-});
-
-// 🔎 Log after body parsing
-app.addHook("preValidation", async (req) => {
-    safeLog("➡️ preValidation - Body:", req.body);
-});
-
-// 🔎 Log after validation, before handler
-app.addHook("preHandler", async (req, reply) => {
-    safeLog("➡️ preHandler - Headers:", req.headers);
-    safeLog("➡️ preHandler - Remaining rate limit:", req.headers["x-ratelimit-requests-remaining"]);
-});
-
-// 🔎 Log right before sending response
-app.addHook("onSend", async (req, reply, payload) => {
-    safeLog("⬅️ onSend - Outgoing headers:", reply.getHeaders());
-    safeLog("⬅️ onSend - Outgoing payload:", payload);
-    return payload; // must return payload
-});
-
-// 🔎 Log after response is sent
-app.addHook("onResponse", async (req, reply) => {
-    safeLog("✅ onResponse - Request completed for:", req.raw.url);
-});
-
-// 🔎 Capture errors globally
-app.setErrorHandler((error, request, reply) => {
-    // Log full error safely
-    safeLog("💥 Error occurred:", error?.message || error, {
-        stack: error?.stack
-    });
-
-    // Respond with proper payload
-    reply.code(500).send({
-        code: 500,
-        message: "Internal server error",
-        body: null
-    });
-});
-
+})
 
 // -------------------------
 // Single email check
