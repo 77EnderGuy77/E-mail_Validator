@@ -38,18 +38,35 @@ const app = Fastify({ logger: true });
 // -------------------------
 // Middleware: API key check
 // -------------------------
-app.addHook("onRequest", async (request, reply) => {
-    if (process.env.NODE_ENV === "development") return; // skip in dev
-    console.log({
-        fullRequest: request.headers,
-        proxySecret: request.headers["x-rapidapi-proxy-secret"],
-        rapidapiUser: request.headers["x-rapidapi-user"] ?? null,
-        rawHeaders: {
-            // DO NOT persist full x-rapidapi-key in logs: only inspect it temporarily for mapping
-            hasRapidapiKey: !!request.headers["x-rapidapi-key"]
-        }
-    });
+let remaining: number | null;
+
+app.addHook("preHandler", async (req, reply) => {
+    const headers = req.headers;
+
+    const user = headers["x-rapidapi-user"] as string | undefined;
+    const subscription = headers["x-rapidapi-subscription"] as string | undefined;
+    const remainingHeader = headers["x-ratelimit-requests-remaining"] as string | undefined;
+
+    // Save as number
+    remaining = remainingHeader ? parseInt(remainingHeader, 10) : null;
+
+    if (!user || !subscription || remaining === null) {
+        return reply.code(401).send({
+            code: 401,
+            message: "Missing required RapidAPI headers",
+            body: null
+        });
+    }
+
+    if (remaining <= 0) {
+        return reply.code(429).send({
+            code: 429,
+            message: "Rate limit exceeded",
+            body: null
+        });
+    }
 });
+
 
 // -------------------------
 // Single email check
@@ -59,7 +76,7 @@ app.get<{ Querystring: IQuerystring, Headers: IHeaders, Reply: IReply }>("/check
     if (!email) return failure(reply, "Missing email parameter", 400);
 
     try {
-        const result = await checkEmail(email.toString(), blocklist, trustedDomains, skipSMTP);
+        const result = await checkEmail(email.toString(), blocklist, trustedDomains, skipSMTP, remaining ?? 0);
         if (!result.syntaxValid) return failure(reply, "Invalid email syntax", 422);
         if (!result.mx?.ok) return failure(reply, "No MX records found", 422);
 
@@ -84,7 +101,7 @@ app.post<{ Headers: IHeaders, Reply: IReply }>("/check-bulk", async (request, re
         const skipSMTP = data.skipSMTP ?? false;
 
         const results = await Promise.all(
-            data.emails.map(email => checkEmail(email, blocklist, trustedDomains, skipSMTP))
+            data.emails.map(email => checkEmail(email, blocklist, trustedDomains, skipSMTP, remaining ?? 0))
         );
 
         const response = results.map(result => ({

@@ -11,9 +11,10 @@ export const checkEmail = async (
   email: string,
   blocklist: Set<string> = new Set(),
   allowlist: Set<string> = new Set(),
-  skipSMTP: boolean = false
+  skipSMTP: boolean = false,
+  requestsLeft: number = 0
 ): Promise<EmailCheckResult> => {
-  const result: EmailCheckResult = {email, syntaxValid: syntaxCheck(email) };
+  const result: EmailCheckResult = {email, syntaxValid: syntaxCheck(email), requestsLeft };
 
   if (!result.syntaxValid) return result;
 

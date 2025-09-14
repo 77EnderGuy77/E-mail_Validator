@@ -11,4 +11,5 @@ export interface EmailCheckResult {
   hasDMARC?: boolean;
   domainAgeYears?: number;
   noProbeList?: boolean;
+  requestsLeft: number
 }
