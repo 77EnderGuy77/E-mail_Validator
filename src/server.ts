@@ -106,9 +106,18 @@ app.addHook("onResponse", async (req, reply) => {
 });
 
 // 🔎 Capture errors globally
-app.setErrorHandler((err, req, reply) => {
-    safeLog("💥 Error occurred:", err);
-    reply.code(500).send({ code: 500, message: "Internal server error" });
+app.setErrorHandler((error, request, reply) => {
+    // Log full error safely
+    safeLog("💥 Error occurred:", error?.message || error, {
+        stack: error?.stack
+    });
+
+    // Respond with proper payload
+    reply.code(500).send({
+        code: 500,
+        message: "Internal server error",
+        body: null
+    });
 });
 
 
