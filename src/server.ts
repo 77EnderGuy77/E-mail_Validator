@@ -38,33 +38,46 @@ const app = Fastify({ logger: true });
 // -------------------------
 // Middleware: API key check
 // -------------------------
-let remaining: number | null;
+let remaining: number | null = 0;
 
+app.addHook("onRequest", async (req) => {
+    console.log("➡️ onRequest - Incoming headers:", req.headers);
+});
+
+// 🔎 Log querystring and body before validation
+app.addHook("preParsing", async (req, reply, payload) => {
+    console.log("➡️ preParsing - Query:", req.query);
+    console.log("➡️ preParsing - Raw payload (may be a stream):", payload);
+    return payload; // must return payload to continue
+});
+
+// 🔎 Log after body parsing
+app.addHook("preValidation", async (req) => {
+    console.log("➡️ preValidation - Body:", req.body);
+});
+
+// 🔎 Log after validation, before handler
 app.addHook("preHandler", async (req, reply) => {
-    const headers = req.headers;
+    console.log("➡️ preHandler - Headers:", req.headers);
+    console.log("➡️ preHandler - Remaining rate limit:", req.headers["x-ratelimit-requests-remaining"]);
+});
 
-    const user = headers["x-rapidapi-user"] as string | undefined;
-    const subscription = headers["x-rapidapi-subscription"] as string | undefined;
-    const remainingHeader = headers["x-ratelimit-requests-remaining"] as string | undefined;
+// 🔎 Log right before sending response
+app.addHook("onSend", async (req, reply, payload) => {
+    console.log("⬅️ onSend - Outgoing headers:", reply.getHeaders());
+    console.log("⬅️ onSend - Outgoing payload:", payload);
+    return payload; // must return payload
+});
 
-    // Save as number
-    remaining = remainingHeader ? parseInt(remainingHeader, 10) : null;
+// 🔎 Log after response is sent
+app.addHook("onResponse", async (req, reply) => {
+    console.log("✅ onResponse - Request completed for:", req.raw.url);
+});
 
-    if (!user || !subscription || remaining === null) {
-        return reply.code(401).send({
-            code: 401,
-            message: "Missing required RapidAPI headers",
-            body: null
-        });
-    }
-
-    if (remaining <= 0) {
-        return reply.code(429).send({
-            code: 429,
-            message: "Rate limit exceeded",
-            body: null
-        });
-    }
+// 🔎 Capture errors globally
+app.setErrorHandler((err, req, reply) => {
+    console.error("💥 Error occurred:", err);
+    reply.code(500).send({ code: 500, message: "Internal server error" });
 });
 
 
