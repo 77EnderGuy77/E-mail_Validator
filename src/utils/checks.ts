@@ -14,7 +14,7 @@ export const checkEmail = async (
   skipSMTP: boolean = false,
   requestsLeft: number = 0
 ): Promise<EmailCheckResult> => {
-  const result: EmailCheckResult = {email, syntaxValid: syntaxCheck(email), requestsLeft };
+  const result: EmailCheckResult = {email, syntaxValid: syntaxCheck(email), requestsLeft};
 
   if (!result.syntaxValid) return result;
 
@@ -58,6 +58,6 @@ export const checkEmail = async (
 
   // Domain age
   result.domainAgeYears = await getDomainAge(domain);
-
+  result.requestsLeft = requestsLeft;
   return result;
 };

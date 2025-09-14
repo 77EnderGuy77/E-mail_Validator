@@ -1,40 +1,97 @@
-openapi: 3.0.3
+openapi: 3.0.0
 info:
-  title: Email Validation API
-  version: 1.0.0
-  description: API for validating single and bulk emails with optional SMTP probe
+  title: Email Validator API
+  description: API to validate emails (syntax, MX, SMTP, SPF, DMARC, etc.)
+  version: "1.1.7a"
   contact:
     email: contact.emailapi@gmail.com
-servers:
-  - url: https://e-mailvalidator-production.up.railway.app/
+
+paths:
+  /check:
+    get:
+      summary: Validate a single email
+      tags:
+        - Email
+      parameters:
+        - name: email
+          in: query
+          required: true
+          description: Email address to validate
+          schema:
+            type: string
+            example: user@example.com
+        - name: skipSMTP
+          in: query
+          required: false
+          description: Skip SMTP probing (default false)
+          schema:
+            type: boolean
+            example: true
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailCheckResult"
+  /check-bulk:
+    post:
+      summary: Validate multiple emails in bulk
+      tags:
+        - Email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emails:
+                  type: array
+                  items:
+                    type: string
+                    example:
+                      - user@example.com
+                      - admin@mydomain.com
+      responses:
+        "200":
+          description: Bulk validation result
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmailCheckResult"
+
 components:
-  securitySchemes:
-    RapidAPIKey:
-      type: apiKey
-      in: header
-      name: x-rapidapi-key
   schemas:
     EmailCheckResult:
       type: object
       properties:
+        email:
+          type: string
+          example: user@example.com
         syntaxValid:
           type: boolean
           example: true
         mx:
           type: object
+          nullable: true
           properties:
             ok:
               type: boolean
               example: true
         smtp:
           type: object
+          nullable: true
           properties:
             ok:
               type: boolean
-              example: true
+              example: false
             error:
               type: string
               nullable: true
+              example: "Mailbox not found"
         inBlocklist:
           type: boolean
           example: false
@@ -54,113 +111,12 @@ components:
           type: boolean
           example: true
         domainAgeYears:
-          type: integer
+          type: number
           example: 5
-    SingleEmailResponse:
-      type: object
-      properties:
-        email:
-          type: string
-          example: "test@example.com"
-        percentage:
-          type: number
-          example: 85
-        info:
-          $ref: '#/components/schemas/EmailCheckResult'
-    BulkEmailResponseItem:
-      type: object
-      properties:
-        percentage:
-          type: number
-          example: 85
-        info:
-          oneOf:
-            - type: string
-              example: "Invalid syntax"
-            - type: string
-              example: "No MX records"
-            - $ref: '#/components/schemas/EmailCheckResult'
-    ApiResponse:
-      type: object
-      properties:
-        code:
+        noProbeList:
+          type: boolean
+          example: false
+        requestsLeft:
           type: integer
-          example: 200
-        message:
-          type: string
-          example: "success"
-        body:
-          oneOf:
-            - $ref: '#/components/schemas/SingleEmailResponse'
-            - type: array
-              items:
-                $ref: '#/components/schemas/BulkEmailResponseItem'
-paths:
-  /check:
-    get:
-      summary: Check a single email
-      description: Returns validation info for a single email
-      security:
-        - RapidAPIKey: []
-      parameters:
-        - in: query
-          name: email
-          schema:
-            type: string
-          required: true
-          description: The email to check
-        - in: query
-          name: skipSMTP
-          schema:
-            type: boolean
-            default: false
-          description: Skip SMTP check
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
-        '400':
-          description: Missing or invalid parameter
-        '422':
-          description: Email failed validation
-        '401':
-          description: Unauthorized (missing or invalid RapidAPI key)
-  /check-bulk:
-    post:
-      summary: Check multiple emails
-      description: Accepts JSON with emails array and skipSMTP option
-      security:
-        - RapidAPIKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                skipSMTP:
-                  type: boolean
-                  default: false
-                emails:
-                  type: array
-                  items:
-                    type: string
-                  example:
-                    - "test1@example.com"
-                    - "test2@example.com"
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse'
-        '400':
-          description: Missing or invalid emails array
-        '401':
-          description: Unauthorized (missing or invalid RapidAPI key)
-        '422':
-          description: One or more emails failed validation
+          description: Remaining API requests (rate-limit info)
+          example: 99
